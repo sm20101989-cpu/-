@@ -1,161 +1,63 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-    <meta charset="UTF-8">
     <style>
-        :root {
-            --primary: #4A90E2;
-            --success: #47C96B;
-            --danger: #F44336;
-            --bg: rgba(0, 0, 0, 0.85);
+        body { margin: 0; display: none; font-family: sans-serif; } /* Скрыт, пока нет задания */
+        #box { 
+            background: #2c3e50; color: white; padding: 20px; 
+            border-radius: 15px; text-align: center; border: 4px solid #3498db;
         }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            color: white;
-            overflow: hidden;
+        .opt { 
+            display: block; width: 100%; margin: 10px 0; padding: 10px;
+            background: #34495e; color: white; border: none; border-radius: 5px; cursor: pointer;
         }
-
-        /* Контейнер задания (скрыт по умолчанию) */
-        #game-overlay {
-            display: none; 
-            background: var(--bg);
-            padding: 30px;
-            border-radius: 20px;
-            text-align: center;
-            width: 80%;
-            max-width: 500px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            border: 2px solid var(--primary);
-        }
-
-        .sentence {
-            font-size: 24px;
-            margin-bottom: 25px;
-            line-height: 1.4;
-        }
-
-        .options-grid {
-            display: grid;
-            gap: 15px;
-        }
-
-        button {
-            background: rgba(255,255,255,0.1);
-            border: 2px solid white;
-            color: white;
-            padding: 12px;
-            font-size: 18px;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        button:hover {
-            background: var(--primary);
-            transform: scale(1.05);
-        }
-
-        /* Индикаторы статистики */
-        .stats {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.6);
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 14px;
-        }
+        .opt:hover { background: #3498db; }
     </style>
 </head>
 <body>
-
-    <div class="stats">
-        Score: <span id="score">0</span> | Progress: <span id="progress">0</span>%
-    </div>
-
-    <div id="game-overlay">
-        <div class="sentence" id="sentence">I ___ to school yesterday.</div>
-        <div class="options-grid" id="options">
-            </div>
+    <div id="box">
+        <h2 id="q">Question?</h2>
+        <div id="btns"></div>
     </div>
 
 <script>
-    // Здесь наш массив заданий (сокращенно для примера)
-    const taskBank = [
-        { id: 1, level: 1, verb_base: "go", sentence: "I ___ to school yesterday.", options: ["go", "went", "goed"], correct: "went" },
-        // ... (сюда вставь весь массив из предыдущего сообщения)
+    // Тот самый банк заданий (короткая версия для теста)
+    const tasks = [
+        { lvl: 1, q: "I ___ to school.", opts: ["go", "went", "goed"], a: "went" },
+        { lvl: 2, q: "She ___ a cake.", opts: ["make", "made", "maked"], a: "made" }
     ];
 
-    let gameState = {
-        score: 0,
-        progress: 0,
-        mistakes_log: [],
-        currentLevel: 1,
-        isLocked: false
-    };
-
-    // ФУНКЦИЯ ЗАПУСКА ЗАДАНИЯ (Вызывать извне или через триггер)
-    function showTask(level) {
-        const tasks = taskBank.filter(t => t.level === level);
-        const task = tasks[Math.floor(Math.random() * tasks.length)];
-        
-        document.getElementById('sentence').innerText = task.sentence;
-        const optionsDiv = document.getElementById('options');
-        optionsDiv.innerHTML = '';
-
-        task.options.forEach(opt => {
-            const btn = document.createElement('button');
-            btn.innerText = opt;
-            btn.onclick = () => checkAnswer(opt, task);
-            optionsDiv.appendChild(btn);
-        });
-
-        document.getElementById('game-overlay').style.display = 'block';
-    }
-
-    function checkAnswer(answer, task) {
-        const isCorrect = answer === task.correct;
-        const overlay = document.getElementById('game-overlay');
-
-        if (isCorrect) {
-            gameState.score += 10;
-            gameState.progress += 10; // Настрой шаг прогресса
-            overlay.style.borderColor = 'var(--success)';
-        } else {
-            gameState.score -= 5;
-            gameState.mistakes_log.push(task.verb_base);
-            overlay.style.borderColor = 'var(--danger)';
+    // Слушаем сигнал от Genially
+    window.addEventListener("message", (event) => {
+        if (event.data.type === "START_TASK") {
+            showQuestion(event.data.level);
         }
+    });
 
-        updateUI();
-
-        // Закрываем окно через секунду, чтобы игрок увидел результат
-        setTimeout(() => {
-            overlay.style.display = 'none';
-            overlay.style.borderColor = 'var(--primary)';
-            
-            // Если прогресс 100%, запускаем финал
-            if (gameState.progress >= 100) {
-                alert("Maze Cleared! Time for Mistake Review.");
-                // Тут логика перехода к Mistake Review Mode
-            }
-        }, 1000);
+    function showQuestion(lvl) {
+        document.body.style.display = "block";
+        const task = tasks.find(t => t.lvl === lvl) || tasks[0];
+        document.getElementById('q').innerText = task.q;
+        const btns = document.getElementById('btns');
+        btns.innerHTML = '';
+        
+        task.opts.forEach(o => {
+            const b = document.createElement('button');
+            b.className = 'opt';
+            b.innerText = o;
+            b.onclick = () => {
+                const isCorrect = o === task.a;
+                // Отправляем результат обратно в Genially
+                window.parent.postMessage({
+                    type: "TASK_RESULT",
+                    success: isCorrect,
+                    verb: task.q
+                }, "*");
+                document.body.style.display = "none";
+            };
+            btns.appendChild(b);
+        });
     }
-
-    function updateUI() {
-        document.getElementById('score').innerText = gameState.score;
-        document.getElementById('progress').innerText = Math.min(gameState.progress, 100);
-    }
-
-    // ТЕСТОВЫЙ ЗАПУСК (удали это, когда свяжешь с персонажем)
-    // window.onload = () => showTask(1);
-
 </script>
 </body>
 </html>
