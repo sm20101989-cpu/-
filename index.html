@@ -1,61 +1,58 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <style>
-        body { margin: 0; display: none; font-family: sans-serif; } /* Скрыт, пока нет задания */
-        #box { 
-            background: #2c3e50; color: white; padding: 20px; 
-            border-radius: 15px; text-align: center; border: 4px solid #3498db;
-        }
-        .opt { 
-            display: block; width: 100%; margin: 10px 0; padding: 10px;
-            background: #34495e; color: white; border: none; border-radius: 5px; cursor: pointer;
-        }
-        .opt:hover { background: #3498db; }
+        body { font-family: sans-serif; background: #202124; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #game-ui { background: #3c4043; padding: 20px; border-radius: 12px; text-align: center; border: 2px solid #8ab4f8; width: 90%; display: none; }
+        button { background: #8ab4f8; border: none; padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #aecbfa; }
     </style>
 </head>
 <body>
-    <div id="box">
-        <h2 id="q">Question?</h2>
-        <div id="btns"></div>
+    <div id="game-ui">
+        <h3 id="question">Question</h3>
+        <div id="options"></div>
     </div>
 
 <script>
-    // Тот самый банк заданий (короткая версия для теста)
     const tasks = [
-        { lvl: 1, q: "I ___ to school.", opts: ["go", "went", "goed"], a: "went" },
+        { lvl: 1, q: "I ___ to school yesterday.", opts: ["go", "went", "goed"], a: "went" },
         { lvl: 2, q: "She ___ a cake.", opts: ["make", "made", "maked"], a: "made" }
     ];
 
     // Слушаем сигнал от Genially
     window.addEventListener("message", (event) => {
-        if (event.data.type === "START_TASK") {
-            showQuestion(event.data.level);
+        // Проверяем, что пришла команда открыть вопрос
+        if (event.data.type === "OPEN_TASK") {
+            showTask(event.data.level);
         }
     });
 
-    function showQuestion(lvl) {
-        document.body.style.display = "block";
-        const task = tasks.find(t => t.lvl === lvl) || tasks[0];
-        document.getElementById('q').innerText = task.q;
-        const btns = document.getElementById('btns');
-        btns.innerHTML = '';
+    function showTask(lvl) {
+        const ui = document.getElementById('game-ui');
+        const qEl = document.getElementById('question');
+        const optEl = document.getElementById('options');
         
+        const task = tasks.find(t => t.lvl === lvl) || tasks[0];
+        
+        ui.style.display = 'block';
+        qEl.innerText = task.q;
+        optEl.innerHTML = '';
+
         task.opts.forEach(o => {
-            const b = document.createElement('button');
-            b.className = 'opt';
-            b.innerText = o;
-            b.onclick = () => {
+            const btn = document.createElement('button');
+            btn.innerText = o;
+            btn.onclick = () => {
                 const isCorrect = o === task.a;
                 // Отправляем результат обратно в Genially
                 window.parent.postMessage({
-                    type: "TASK_RESULT",
-                    success: isCorrect,
-                    verb: task.q
+                    type: "ANSWER_RESULT",
+                    success: isCorrect
                 }, "*");
-                document.body.style.display = "none";
+                ui.style.display = 'none';
             };
-            btns.appendChild(b);
+            optEl.appendChild(btn);
         });
     }
 </script>
