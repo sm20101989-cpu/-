@@ -1,59 +1,171 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
     <style>
-        body { font-family: sans-serif; background: #202124; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        #game-ui { background: #3c4043; padding: 20px; border-radius: 12px; text-align: center; border: 2px solid #8ab4f8; width: 90%; display: none; }
-        button { background: #8ab4f8; border: none; padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #aecbfa; }
+        :root {
+            --primary: #6e45e2;
+            --danger: #ff4b2b;
+            --success: #11998e;
+        }
+        body { margin: 0; font-family: sans-serif; overflow: hidden; background: #222; color: white; }
+        
+        /* Игровое поле */
+        #game-container { position: relative; width: 600px; height: 400px; background: #333; margin: 20px auto; border: 4px solid #444; }
+        #player { position: absolute; width: 30px; height: 30px; background: #00d2ff; border-radius: 5px; transition: 0.1s linear; z-index: 10; }
+        .wall { position: absolute; background: #555; }
+        .obstacle { position: absolute; background: #e94057; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+        .exit { position: absolute; background: #11998e; width: 40px; height: 40px; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; }
+
+        /* UI */
+        #ui { padding: 10px; text-align: center; }
+        .progress-container { width: 80%; background: #eee; height: 10px; margin: 10px auto; border-radius: 5px; }
+        #progress-bar { width: 0%; height: 100%; background: var(--success); border-radius: 5px; transition: 0.3s; }
+
+        /* Модальное окно задания */
+        #quiz-overlay { 
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.8); z-index: 100; flex-direction: column; align-items: center; justify-content: center; 
+        }
+        .quiz-card { background: #fff; color: #333; padding: 20px; border-radius: 10px; text-align: center; width: 80%; }
+        .options button { display: block; width: 100%; margin: 10px 0; padding: 10px; cursor: pointer; border: none; background: #f0f0f0; border-radius: 5px; }
+        .options button:hover { background: var(--primary); color: white; }
     </style>
 </head>
 <body>
-    <div id="game-ui">
-        <h3 id="question">Question</h3>
-        <div id="options"></div>
+
+<div id="ui">
+    <div>Score: <span id="score">0</span> | Progress: <span id="prog-text">0</span>%</div>
+    <div class="progress-container"><div id="progress-bar"></div></div>
+</div>
+
+<div id="game-container">
+    <div id="player" style="top: 10px; left: 10px;"></div>
+    
+    <div class="wall" style="width: 200px; height: 20px; top: 100px; left: 0;"></div>
+    <div id="door1" class="obstacle" data-type="door" style="width: 20px; height: 100px; top: 0; left: 200px;">DOOR</div>
+    <div class="exit" id="maze-exit">EXIT</div>
+</div>
+
+<div id="quiz-overlay">
+    <div class="quiz-card">
+        <h3 id="question-text">Question here?</h3>
+        <div class="options" id="options-container"></div>
     </div>
+</div>
 
 <script>
-    const tasks = [
-        { lvl: 1, q: "I ___ to school yesterday.", opts: ["go", "went", "goed"], a: "went" },
-        { lvl: 2, q: "She ___ a cake.", opts: ["make", "made", "maked"], a: "made" }
-    ];
+    // --- КОНФИГУРАЦИЯ (Сюда потом подключим редактор) ---
+    const config = {
+        step: 10,
+        scoreStep: 10,
+        penalty: -5,
+        winProgress: 100,
+        questions: [
+            { q: "She ___ (buy) a new car yesterday.", a: ["buyed", "bought", "boughten"], correct: 1 },
+            { q: "They ___ (go) to Paris last summer.", a: ["went", "gone", "goed"], correct: 0 }
+        ]
+    };
 
-    // Слушаем сигнал от Genially
-    window.addEventListener("message", (event) => {
-        // Проверяем, что пришла команда открыть вопрос
-        if (event.data.type === "OPEN_TASK") {
-            showTask(event.data.level);
-        }
+    let state = {
+        x: 10, y: 10, score: 0, progress: 0, 
+        errors: [], currentObs: null, solvedObs: new Set()
+    };
+
+    const player = document.getElementById('player');
+    const overlay = document.getElementById('quiz-overlay');
+
+    // --- ДВИЖЕНИЕ ---
+    document.addEventListener('keydown', (e) => {
+        if (overlay.style.display === 'flex') return; // Блок движения при квизе
+
+        let newX = state.x;
+        let newY = state.y;
+
+        if (e.key === 'ArrowUp') newY -= config.step;
+        if (e.key === 'ArrowDown') newY += config.step;
+        if (e.key === 'ArrowLeft') newX -= config.step;
+        if (e.key === 'ArrowRight') newX += config.step;
+
+        checkCollision(newX, newY);
     });
 
-    function showTask(lvl) {
-        const ui = document.getElementById('game-ui');
-        const qEl = document.getElementById('question');
-        const optEl = document.getElementById('options');
+    function checkCollision(nx, ny) {
+        const playerRect = { x: nx, y: ny, w: 30, h: 30 };
         
-        const task = tasks.find(t => t.lvl === lvl) || tasks[0];
-        
-        ui.style.display = 'block';
-        qEl.innerText = task.q;
-        optEl.innerHTML = '';
+        // Столкновение с препятствиями
+        const obstacles = document.querySelectorAll('.obstacle');
+        for (let obs of obstacles) {
+            if (state.solvedObs.has(obs.id)) continue;
 
-        task.opts.forEach(o => {
+            const r = obs.getBoundingClientRect();
+            const container = document.getElementById('game-container').getBoundingClientRect();
+            const ox = r.left - container.left;
+            const oy = r.top - container.top;
+
+            if (nx < ox + r.width && nx + 30 > ox && ny < oy + r.height && ny + 30 > oy) {
+                startQuiz(obs.id);
+                return; // Останавливаем движение
+            }
+        }
+
+        // Границы контейнера
+        if (nx >= 0 && nx <= 570 && ny >= 0 && ny <= 370) {
+            state.x = nx;
+            state.y = ny;
+            player.style.left = state.x + 'px';
+            player.style.top = state.y + 'px';
+        }
+        
+        checkExit();
+    }
+
+    // --- ЛОГИКА ЗАДАНИЙ ---
+    function startQuiz(obsId) {
+        state.currentObs = obsId;
+        const qData = config.questions[Math.floor(Math.random() * config.questions.length)];
+        
+        document.getElementById('question-text').innerText = qData.q;
+        const container = document.getElementById('options-container');
+        container.innerHTML = '';
+        
+        qData.a.forEach((opt, idx) => {
             const btn = document.createElement('button');
-            btn.innerText = o;
-            btn.onclick = () => {
-                const isCorrect = o === task.a;
-                // Отправляем результат обратно в Genially
-                window.parent.postMessage({
-                    type: "ANSWER_RESULT",
-                    success: isCorrect
-                }, "*");
-                ui.style.display = 'none';
-            };
-            optEl.appendChild(btn);
+            btn.innerText = opt;
+            btn.onclick = () => submitAnswer(idx === qData.correct, qData);
+            container.appendChild(btn);
         });
+        
+        overlay.style.display = 'flex';
+    }
+
+    function submitAnswer(isCorrect, qData) {
+        if (isCorrect) {
+            state.score += config.scoreStep;
+            state.progress += 20; // Для примера
+            state.solvedObs.add(state.currentObs);
+            document.getElementById(state.currentObs).style.opacity = '0.3';
+            overlay.style.display = 'none';
+        } else {
+            state.score += config.penalty;
+            state.errors.push(qData); // Логируем для финала
+            alert("Wrong! Try again.");
+        }
+        updateUI();
+    }
+
+    function updateUI() {
+        document.getElementById('score').innerText = state.score;
+        document.getElementById('prog-text').innerText = state.progress;
+        document.getElementById('progress-bar').style.width = state.progress + '%';
+    }
+
+    function checkExit() {
+        if (state.x > 540 && state.y > 340) {
+            if (state.progress >= config.winProgress) {
+                alert("CONGRATS! Maze cleared. Now review your errors: " + state.errors.length);
+                // Тут будет запуск режима Повтора
+            }
+        }
     }
 </script>
 </body>
