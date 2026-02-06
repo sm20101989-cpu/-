@@ -2,170 +2,117 @@
 <html>
 <head>
     <style>
-        :root {
-            --primary: #6e45e2;
-            --danger: #ff4b2b;
-            --success: #11998e;
+        /* Делаем контейнер прозрачным, чтобы видеть фон Genially */
+        body, html { margin: 0; padding: 0; overflow: hidden; background: transparent; }
+        #game-canvas { 
+            position: relative; 
+            width: 100vw; 
+            height: 100vh; 
+            background: rgba(0,0,0,0.1); /* Слегка заметен для отладки, потом уберем */
         }
-        body { margin: 0; font-family: sans-serif; overflow: hidden; background: #222; color: white; }
         
-        /* Игровое поле */
-        #game-container { position: relative; width: 600px; height: 400px; background: #333; margin: 20px auto; border: 4px solid #444; }
-        #player { position: absolute; width: 30px; height: 30px; background: #00d2ff; border-radius: 5px; transition: 0.1s linear; z-index: 10; }
-        .wall { position: absolute; background: #555; }
-        .obstacle { position: absolute; background: #e94057; display: flex; align-items: center; justify-content: center; font-size: 10px; }
-        .exit { position: absolute; background: #11998e; width: 40px; height: 40px; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; }
-
-        /* UI */
-        #ui { padding: 10px; text-align: center; }
-        .progress-container { width: 80%; background: #eee; height: 10px; margin: 10px auto; border-radius: 5px; }
-        #progress-bar { width: 0%; height: 100%; background: var(--success); border-radius: 5px; transition: 0.3s; }
-
-        /* Модальное окно задания */
-        #quiz-overlay { 
-            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.8); z-index: 100; flex-direction: column; align-items: center; justify-content: center; 
+        /* Твой герой */
+        #hero { 
+            position: absolute; 
+            width: 50px; height: 50px; 
+            background: url('ТВОЯ_ССЫЛКА_НА_ГЕРОЯ') no-repeat center; 
+            background-size: contain;
+            transition: 0.2s ease-out;
+            z-index: 10;
         }
-        .quiz-card { background: #fff; color: #333; padding: 20px; border-radius: 10px; text-align: center; width: 80%; }
-        .options button { display: block; width: 100%; margin: 10px 0; padding: 10px; cursor: pointer; border: none; background: #f0f0f0; border-radius: 5px; }
-        .options button:hover { background: var(--primary); color: white; }
+
+        /* Окно вопроса в стиле джунглей */
+        #quiz-box {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 320px; background: #fdf5e6; border: 5px solid #8b4513; border-radius: 15px;
+            padding: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 1000; text-align: center;
+        }
+        .ans-btn { 
+            display: block; width: 100%; margin: 10px 0; padding: 12px; 
+            background: #228b22; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
-<div id="ui">
-    <div>Score: <span id="score">0</span> | Progress: <span id="prog-text">0</span>%</div>
-    <div class="progress-container"><div id="progress-bar"></div></div>
-</div>
-
-<div id="game-container">
-    <div id="player" style="top: 10px; left: 10px;"></div>
+<div id="game-canvas">
+    <div id="hero" style="left: 50px; top: 250px;"></div>
     
-    <div class="wall" style="width: 200px; height: 20px; top: 100px; left: 0;"></div>
-    <div id="door1" class="obstacle" data-type="door" style="width: 20px; height: 100px; top: 0; left: 200px;">DOOR</div>
-    <div class="exit" id="maze-exit">EXIT</div>
+    <div class="trigger" data-id="gate1" style="position:absolute; left:400px; top:200px; width:60px; height:100px;"></div>
 </div>
 
-<div id="quiz-overlay">
-    <div class="quiz-card">
-        <h3 id="question-text">Question here?</h3>
-        <div class="options" id="options-container"></div>
-    </div>
+<div id="quiz-box">
+    <h2 id="quest">Where is the verb?</h2>
+    <div id="btns"></div>
 </div>
 
 <script>
-    // --- КОНФИГУРАЦИЯ (Сюда потом подключим редактор) ---
     const config = {
-        step: 10,
-        scoreStep: 10,
-        penalty: -5,
-        winProgress: 100,
         questions: [
-            { q: "She ___ (buy) a new car yesterday.", a: ["buyed", "bought", "boughten"], correct: 1 },
-            { q: "They ___ (go) to Paris last summer.", a: ["went", "gone", "goed"], correct: 0 }
+            { q: "He ___ a map in the jungle.", a: ["finded", "found", "founden"], correct: 1 },
+            { q: "The dog ___ into the river.", a: ["run", "ran", "runned"], correct: 1 }
         ]
     };
 
-    let state = {
-        x: 10, y: 10, score: 0, progress: 0, 
-        errors: [], currentObs: null, solvedObs: new Set()
-    };
+    let pos = { x: 50, y: 250 };
+    const hero = document.getElementById('hero');
+    const qBox = document.getElementById('quiz-box');
 
-    const player = document.getElementById('player');
-    const overlay = document.getElementById('quiz-overlay');
-
-    // --- ДВИЖЕНИЕ ---
+    // Управление кликами (для мобилок и простоты)
     document.addEventListener('keydown', (e) => {
-        if (overlay.style.display === 'flex') return; // Блок движения при квизе
+        if(qBox.style.display === 'block') return;
 
-        let newX = state.x;
-        let newY = state.y;
+        if(e.key === 'ArrowRight') pos.x += 30;
+        if(e.key === 'ArrowLeft') pos.x -= 30;
+        if(e.key === 'ArrowUp') pos.y -= 30;
+        if(e.key === 'ArrowDown') pos.y += 30;
 
-        if (e.key === 'ArrowUp') newY -= config.step;
-        if (e.key === 'ArrowDown') newY += config.step;
-        if (e.key === 'ArrowLeft') newX -= config.step;
-        if (e.key === 'ArrowRight') newX += config.step;
-
-        checkCollision(newX, newY);
+        updatePosition();
+        checkTriggers();
     });
 
-    function checkCollision(nx, ny) {
-        const playerRect = { x: nx, y: ny, w: 30, h: 30 };
-        
-        // Столкновение с препятствиями
-        const obstacles = document.querySelectorAll('.obstacle');
-        for (let obs of obstacles) {
-            if (state.solvedObs.has(obs.id)) continue;
-
-            const r = obs.getBoundingClientRect();
-            const container = document.getElementById('game-container').getBoundingClientRect();
-            const ox = r.left - container.left;
-            const oy = r.top - container.top;
-
-            if (nx < ox + r.width && nx + 30 > ox && ny < oy + r.height && ny + 30 > oy) {
-                startQuiz(obs.id);
-                return; // Останавливаем движение
-            }
-        }
-
-        // Границы контейнера
-        if (nx >= 0 && nx <= 570 && ny >= 0 && ny <= 370) {
-            state.x = nx;
-            state.y = ny;
-            player.style.left = state.x + 'px';
-            player.style.top = state.y + 'px';
-        }
-        
-        checkExit();
+    function updatePosition() {
+        hero.style.left = pos.x + 'px';
+        hero.style.top = pos.y + 'px';
     }
 
-    // --- ЛОГИКА ЗАДАНИЙ ---
-    function startQuiz(obsId) {
-        state.currentObs = obsId;
-        const qData = config.questions[Math.floor(Math.random() * config.questions.length)];
-        
-        document.getElementById('question-text').innerText = qData.q;
-        const container = document.getElementById('options-container');
-        container.innerHTML = '';
-        
-        qData.a.forEach((opt, idx) => {
-            const btn = document.createElement('button');
-            btn.innerText = opt;
-            btn.onclick = () => submitAnswer(idx === qData.correct, qData);
-            container.appendChild(btn);
+    function checkTriggers() {
+        const triggers = document.querySelectorAll('.trigger');
+        triggers.forEach(t => {
+            const hRect = hero.getBoundingClientRect();
+            const tRect = t.getBoundingClientRect();
+
+            if (!(hRect.right < tRect.left || hRect.left > tRect.right || 
+                  hRect.bottom < tRect.top || hRect.top > tRect.bottom)) {
+                showQuiz(t);
+            }
         });
+    }
+
+    function showQuiz(triggerElement) {
+        const qData = config.questions[Math.floor(Math.random()*config.questions.length)];
+        document.getElementById('quest').innerText = qData.q;
+        const btnCont = document.getElementById('btns');
+        btnCont.innerHTML = '';
         
-        overlay.style.display = 'flex';
-    }
-
-    function submitAnswer(isCorrect, qData) {
-        if (isCorrect) {
-            state.score += config.scoreStep;
-            state.progress += 20; // Для примера
-            state.solvedObs.add(state.currentObs);
-            document.getElementById(state.currentObs).style.opacity = '0.3';
-            overlay.style.display = 'none';
-        } else {
-            state.score += config.penalty;
-            state.errors.push(qData); // Логируем для финала
-            alert("Wrong! Try again.");
-        }
-        updateUI();
-    }
-
-    function updateUI() {
-        document.getElementById('score').innerText = state.score;
-        document.getElementById('prog-text').innerText = state.progress;
-        document.getElementById('progress-bar').style.width = state.progress + '%';
-    }
-
-    function checkExit() {
-        if (state.x > 540 && state.y > 340) {
-            if (state.progress >= config.winProgress) {
-                alert("CONGRATS! Maze cleared. Now review your errors: " + state.errors.length);
-                // Тут будет запуск режима Повтора
-            }
-        }
+        qData.a.forEach((ans, i) => {
+            const b = document.createElement('button');
+            b.className = 'ans-btn';
+            b.innerText = ans;
+            b.onclick = () => {
+                if(i === qData.correct) {
+                    qBox.style.display = 'none';
+                    triggerElement.remove(); // Убираем преграду
+                } else {
+                    alert("Oh no! Try again!");
+                    pos.x -= 50; // Отбрасываем назад
+                    updatePosition();
+                    qBox.style.display = 'none';
+                }
+            };
+            btnCont.appendChild(b);
+        });
+        qBox.style.display = 'block';
     }
 </script>
 </body>
