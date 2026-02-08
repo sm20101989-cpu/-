@@ -2,327 +2,210 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <title>3D Past Simple Mega Maze</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        :root {
-            --primary-color: #4a90e2;
-            --secondary-color: #f39c12;
-            --error-color: #e74c3c;
-            --success-color: #2ecc71;
-            --bg-color: #f4f7f6;
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        
+        /* Стили HUD */
+        .stats { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8); color: #00ffcc; padding: 15px; border-radius: 10px; pointer-events: auto; border: 1px solid #00ffcc; }
+        #minimap { width: 150px; height: 150px; background: rgba(0,255,200,0.1); border: 1px solid #00ffcc; margin-top: 10px; position: relative; }
+        #player-dot { width: 8px; height: 8px; background: #ff0055; position: absolute; border-radius: 50%; transform: translate(-50%, -50%); }
+        
+        /* Прицел */
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); opacity: 0.5; }
+
+        /* Окно вопроса */
+        #quiz-card { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: #fff; padding: 30px; border-radius: 20px; display: none; 
+            pointer-events: auto; text-align: center; width: 350px; box-shadow: 0 0 40px rgba(0,255,204,0.5);
         }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: transparent;
-        }
-
-        #game-container {
-            width: 100%;
-            max-width: 600px;
-            background: var(--bg-color);
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* Визуализация лабиринта */
-        #maze-view {
-            height: 150px;
-            background: #ddd;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: space-around;
-            overflow: hidden;
-            border: 4px solid #333;
-        }
-
-        #character {
-            font-size: 40px;
-            transition: all 0.5s ease;
-            position: absolute;
-            left: 10%;
-            z-index: 2;
-        }
-
-        .obstacle {
-            font-size: 40px;
-            position: absolute;
-            right: 20%;
-        }
-
-        /* Интерфейс */
-        .stats {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            font-weight: bold;
-        }
-
-        .progress-container {
-            width: 100%;
-            height: 20px;
-            background: #eee;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-
-        #progress-bar {
-            width: 0%;
-            height: 100%;
-            background: var(--success-color);
-            border-radius: 10px;
-            transition: width 0.3s;
-        }
-
-        /* Карточка задания */
-        #quiz-card {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            display: none;
-        }
-
-        .options-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        button {
-            padding: 10px;
-            border: none;
-            border-radius: 5px;
-            background: var(--primary-color);
-            color: white;
-            cursor: pointer;
-            transition: transform 0.1s;
-        }
-
-        button:active { transform: scale(0.95); }
-
-        input[type="text"] {
-            padding: 10px;
-            width: 80%;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            margin-bottom: 10px;
-        }
-
-        #timer {
-            color: var(--error-color);
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-
-        /* Анимации фидбека */
-        .shake { animation: shake 0.5s; border: 2px solid red !important; }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
-        }
-
-        #final-screen { display: none; }
+        .ans-btn { display: block; width: 100%; padding: 12px; margin: 10px 0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: #007bff; color: white; font-size: 16px; }
+        .ans-btn:hover { background: #0056b3; }
+        
+        #hint { position: absolute; bottom: 15%; width: 100%; text-align: center; color: #fff; font-size: 20px; text-shadow: 2px 2px 4px #000; display: none; }
     </style>
 </head>
 <body>
 
-<div id="game-container">
+<div id="ui-layer">
+    <div id="crosshair"></div>
     <div class="stats">
-        <span>Очки: <span id="score">0</span></span>
-        <span>Попытки: <span id="lives">3</span></span>
+        <div>ОЧКИ: <span id="score">0</span></div>
+        <div>ЖИЗНИ: <span id="lives">3</span></div>
+        <div id="minimap"><div id="player-dot"></div></div>
     </div>
-
-    <div class="progress-container">
-        <div id="progress-bar"></div>
-    </div>
-
-    <div id="maze-view">
-        <div id="character">🏃‍♂️</div>
-        <div class="obstacle" id="obstacle-icon">🧱</div>
-    </div>
-
-    <div id="timer"></div>
+    
+    <div id="hint">🛑 БАРЬЕР! Кликни, чтобы взломать его!</div>
 
     <div id="quiz-card">
-        <p id="question-text">Загрузка задания...</p>
-        <div id="answer-area"></div>
-        <div id="feedback"></div>
-    </div>
-
-    <div id="start-screen">
-        <h2>Past Simple Maze</h2>
-        <button onclick="startGame()">Начать игру</button>
-    </div>
-
-    <div id="final-screen">
-        <h2>Победа! 🏆</h2>
-        <p id="final-results"></p>
-        <button onclick="location.reload()">Играть снова</button>
+        <h2 id="q-text" style="color:#333">?</h2>
+        <div id="options"></div>
     </div>
 </div>
 
 <script>
-    // --- Настройки (Учитель может менять здесь) ---
-    const config = {
-        pointsWin: 5,
-        pointsLoss: 3,
-        lives: 3,
-        timerSeconds: 15,
-        targetScore: 50, // Сколько процентов нужно для выхода
-        questions: [
-            { q: "She ______ a shower (take)", type: "fill", a: "took" },
-            { q: "Yesterday I ______ to the park.", type: "choice", options: ["goed", "went", "was go"], a: "went" },
-            { q: "He ______ his homework. (not/do)", type: "fill", a: "didn't do" },
-            { q: "They ______ football last Sunday.", type: "choice", options: ["played", "playd", "plaied"], a: "played" },
-            { q: "Rewrite in Past Simple: 'I see a bird'", type: "fill", a: "I saw a bird" }
-        ]
-    };
+// КАРТА ЛАБИРИНТА (1-стена, 0-путь, 2-барьер, 3-выход)
+const maze = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+    [1,0,1,0,1,0,1,1,1,2,1,0,1,0,1,1,1,1,0,1],
+    [1,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,1],
+    [1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,0,1,1],
+    [1,0,0,0,2,0,0,0,1,0,0,0,0,0,1,0,0,0,0,1],
+    [1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,1,0,1],
+    [1,0,0,0,0,0,1,0,2,0,1,0,0,0,0,0,0,1,0,1],
+    [1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,1,0,1,0,1],
+    [1,0,1,0,0,0,0,0,1,0,0,0,1,0,0,2,0,1,0,1],
+    [1,0,1,0,1,1,1,2,1,1,1,0,1,0,1,1,1,1,0,1],
+    [1,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,1,0,1,1,1,0,1,1,1,1,1,1,1,1,0,1],
+    [1,0,1,1,1,0,0,0,1,0,0,0,0,0,2,0,0,0,0,1],
+    [1,0,0,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,2,1],
+    [1,1,1,0,0,0,1,0,1,0,0,0,1,0,1,0,0,0,0,1],
+    [1,0,0,0,1,0,0,0,1,0,1,0,0,0,1,0,1,1,0,1],
+    [1,0,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,3,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
 
-    let state = {
-        score: 0,
-        progress: 0,
-        lives: config.lives,
-        currentIdx: 0,
-        timeLeft: config.timerSeconds,
-        timerInterval: null
-    };
+const questions = [
+    { q: "Yesterday I ______ (see) a ghost.", a: "saw", opt: ["saw", "seed", "seen"] },
+    { q: "She ______ (not/buy) the dress.", a: "didn't buy", opt: ["didn't bought", "not bought", "didn't buy"] },
+    { q: "They ______ (be) happy to help.", a: "were", opt: ["was", "were", "been"] },
+    { q: "Where ______ (do) you go?", a: "did", opt: ["did", "do", "done"] },
+    { q: "I ______ (have) a cat 5 years ago.", a: "had", opt: ["had", "haved", "has"] }
+];
 
-    function startGame() {
-        document.getElementById('start-screen').style.display = 'none';
-        document.getElementById('quiz-card').style.display = 'block';
-        nextQuestion();
-    }
+// Настройка сцены
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0a1a);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-    function nextQuestion() {
-        if (state.progress >= 100 || state.lives <= 0) {
-            endGame();
-            return;
+// Освещение
+const light = new THREE.PointLight(0x00ffcc, 1, 15);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0x404040, 0.5));
+
+// Материалы
+const wallMat = new THREE.MeshStandardMaterial({ color: 0x222244, roughness: 0.8 });
+const barMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, transparent: true, opacity: 0.8 });
+const floorMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+
+const walls = [], barriers = [];
+const geo = new THREE.BoxGeometry(1, 2.5, 1);
+
+maze.forEach((row, z) => {
+    row.forEach((type, x) => {
+        if(type === 1) {
+            const m = new THREE.Mesh(geo, wallMat);
+            m.position.set(x, 1.25, z);
+            scene.add(m); walls.push(m);
+        } else if(type === 2) {
+            const m = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2.4, 0.2), barMat);
+            m.position.set(x, 1.25, z);
+            scene.add(m); barriers.push(m);
+        } else if(type === 3) {
+            const fin = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.1), new THREE.MeshBasicMaterial({color: 0x00ff00}));
+            fin.position.set(x, 1.25, z);
+            scene.add(fin);
         }
+    });
+});
 
-        const q = config.questions[Math.floor(Math.random() * config.questions.length)];
-        document.getElementById('question-text').innerText = q.q;
-        const area = document.getElementById('answer-area');
-        area.innerHTML = '';
-        
-        if (q.type === 'choice') {
-            const grid = document.createElement('div');
-            grid.className = 'options-grid';
-            q.options.forEach(opt => {
-                const btn = document.createElement('button');
-                btn.innerText = opt;
-                btn.onclick = () => checkAnswer(opt, q.a);
-                grid.appendChild(btn);
-            });
-            area.appendChild(grid);
-        } else {
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.id = 'user-input';
-            const btn = document.createElement('button');
-            btn.innerText = 'Проверить';
-            btn.style.display = 'block';
-            btn.style.margin = '10px auto';
-            btn.onclick = () => checkAnswer(input.value.trim().toLowerCase(), q.a.toLowerCase());
-            area.appendChild(input);
-            area.appendChild(btn);
-        }
-        
-        startTimer();
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), floorMat);
+floor.rotation.x = -Math.PI/2;
+scene.add(floor);
+
+// Игрок
+const player = new THREE.Group();
+player.position.set(1, 0, 1);
+player.add(camera);
+scene.add(player);
+
+let score = 0, lives = 3, activeBarrier = null;
+const keys = {};
+window.onkeydown = e => keys[e.code] = true;
+window.onkeyup = e => keys[e.code] = false;
+
+// Клик по барьеру
+window.onclick = () => {
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2(0,0), camera);
+    const hits = ray.intersectObjects(barriers);
+    if(hits.length > 0 && hits[0].distance < 2) {
+        activeBarrier = hits[0].object;
+        showQuiz();
     }
+};
 
-    function startTimer() {
-        clearInterval(state.timerInterval);
-        state.timeLeft = config.timerSeconds;
-        const timerEl = document.getElementById('timer');
-        timerEl.innerText = `Осталось времени: ${state.timeLeft}с`;
-        
-        state.timerInterval = setInterval(() => {
-            state.timeLeft--;
-            timerEl.innerText = `Осталось времени: ${state.timeLeft}с`;
-            if (state.timeLeft <= 0) {
-                clearInterval(state.timerInterval);
-                handleError();
+function showQuiz() {
+    const q = questions[Math.floor(Math.random()*questions.length)];
+    document.getElementById('q-text').innerText = q.q;
+    const optDiv = document.getElementById('options');
+    optDiv.innerHTML = '';
+    q.opt.forEach(o => {
+        const b = document.createElement('button');
+        b.className = 'ans-btn';
+        b.innerText = o;
+        b.onclick = () => {
+            if(o === q.a) {
+                score += 10;
+                scene.remove(activeBarrier);
+                barriers.splice(barriers.indexOf(activeBarrier), 1);
+            } else {
+                lives--;
+                score = Math.max(0, score - 5);
             }
-        }, 1000);
+            document.getElementById('quiz-card').style.display = 'none';
+            document.getElementById('score').innerText = score;
+            document.getElementById('lives').innerText = lives;
+            if(lives <= 0) { alert("Вы заблудились навсегда..."); location.reload(); }
+        };
+        optDiv.appendChild(b);
+    });
+    document.getElementById('quiz-card').style.display = 'block';
+}
+
+function update() {
+    const prev = player.position.clone();
+    const speed = 0.08, rotSpeed = 0.04;
+
+    if(keys['KeyW'] || keys['ArrowUp']) player.translateZ(-speed);
+    if(keys['KeyS'] || keys['ArrowDown']) player.translateZ(speed);
+    if(keys['KeyA'] || keys['ArrowLeft']) player.rotation.y += rotSpeed;
+    if(keys['KeyD'] || keys['ArrowRight']) player.rotation.y -= rotSpeed;
+
+    // Коллизии
+    [...walls, ...barriers].forEach(w => {
+        if(player.position.distanceTo(w.position) < 0.75) player.position.copy(prev);
+    });
+
+    // Хинт
+    let isNear = false;
+    barriers.forEach(b => { if(player.position.distanceTo(b.position) < 2) isNear = true; });
+    document.getElementById('hint').style.display = isNear ? 'block' : 'none';
+
+    // Миникарта
+    document.getElementById('player-dot').style.left = (player.position.x * 7.5) + 'px';
+    document.getElementById('player-dot').style.top = (player.position.z * 7.5) + 'px';
+
+    // Финиш (клетка 18, 18)
+    if(player.position.distanceTo(new THREE.Vector3(18, 0, 18)) < 1) {
+        alert("СВОБОДА! Вы прошли лабиринт. Очки: " + score);
+        location.reload();
     }
 
-    function checkAnswer(user, correct) {
-        clearInterval(state.timerInterval);
-        if (user === correct) {
-            handleSuccess();
-        } else {
-            handleError();
-        }
-    }
-
-    function handleSuccess() {
-        state.score += config.pointsWin;
-        state.progress += 20; // +20% к прогрессу
-        updateUI();
-        animateChar();
-        
-        const card = document.getElementById('quiz-card');
-        card.style.background = '#d4edda';
-        setTimeout(() => {
-            card.style.background = 'white';
-            nextQuestion();
-        }, 1000);
-    }
-
-    function handleError() {
-        state.lives--;
-        state.score = Math.max(0, state.score - config.pointsLoss);
-        state.progress = Math.max(0, state.progress - 10);
-        updateUI();
-        
-        const card = document.getElementById('quiz-card');
-        card.classList.add('shake');
-        setTimeout(() => {
-            card.classList.remove('shake');
-            if (state.lives > 0) nextQuestion();
-            else endGame();
-        }, 1000);
-    }
-
-    function updateUI() {
-        document.getElementById('score').innerText = state.score;
-        document.getElementById('lives').innerText = state.lives;
-        document.getElementById('progress-bar').style.width = state.progress + '%';
-    }
-
-    function animateChar() {
-        const char = document.getElementById('character');
-        char.style.left = '70%'; // Персонаж идет к преграде
-        setTimeout(() => {
-            char.style.left = '10%'; // Возвращается (эффект прохода через стену)
-        }, 500);
-    }
-
-    function endGame() {
-        document.getElementById('quiz-card').style.display = 'none';
-        document.getElementById('timer').style.display = 'none';
-        const final = document.getElementById('final-screen');
-        final.style.display = 'block';
-        
-        const resultText = state.lives > 0 
-            ? `Вы вышли из лабиринта! Очки: ${state.score}` 
-            : `Игра окончена. Вас завалило камнями. Очки: ${state.score}`;
-        document.getElementById('final-results').innerText = resultText;
-    }
+    light.position.copy(player.position);
+    renderer.render(scene, camera);
+    requestAnimationFrame(update);
+}
+update();
 </script>
-
 </body>
 </html>
