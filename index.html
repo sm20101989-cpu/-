@@ -1,211 +1,337 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>3D Past Simple Mega Maze</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; }
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-        
-        /* Стили HUD */
-        .stats { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8); color: #00ffcc; padding: 15px; border-radius: 10px; pointer-events: auto; border: 1px solid #00ffcc; }
-        #minimap { width: 150px; height: 150px; background: rgba(0,255,200,0.1); border: 1px solid #00ffcc; margin-top: 10px; position: relative; }
-        #player-dot { width: 8px; height: 8px; background: #ff0055; position: absolute; border-radius: 50%; transform: translate(-50%, -50%); }
-        
-        /* Прицел */
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); opacity: 0.5; }
+import React, { useState, useEffect } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-        /* Окно вопроса */
-        #quiz-card { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: #fff; padding: 30px; border-radius: 20px; display: none; 
-            pointer-events: auto; text-align: center; width: 350px; box-shadow: 0 0 40px rgba(0,255,204,0.5);
-        }
-        .ans-btn { display: block; width: 100%; padding: 12px; margin: 10px 0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: #007bff; color: white; font-size: 16px; }
-        .ans-btn:hover { background: #0056b3; }
-        
-        #hint { position: absolute; bottom: 15%; width: 100%; text-align: center; color: #fff; font-size: 20px; text-shadow: 2px 2px 4px #000; display: none; }
-    </style>
-</head>
-<body>
+const App = () => {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [steps, setSteps] = useState(8432);
+  const [heartRate, setHeartRate] = useState(72);
+  const [speed, setSpeed] = useState(5.2);
+  const [distance, setDistance] = useState(4.3);
+  const [duration, setDuration] = useState('00:42:18');
+  const [isTracking, setIsTracking] = useState(false);
+  const [routeData, setRouteData] = useState([]);
+  const [healthTips, setHealthTips] = useState([
+    "Stay hydrated! Drink water before, during, and after your workout.",
+    "Take regular breaks during long walks to prevent fatigue.",
+    "Maintain good posture while walking to avoid back pain.",
+    "Aim for at least 10,000 steps per day for optimal health.",
+    "Stretch before and after exercise to improve flexibility."
+  ]);
+  const [currentTip, setCurrentTip] = useState(0);
 
-<div id="ui-layer">
-    <div id="crosshair"></div>
-    <div class="stats">
-        <div>ОЧКИ: <span id="score">0</span></div>
-        <div>ЖИЗНИ: <span id="lives">3</span></div>
-        <div id="minimap"><div id="player-dot"></div></div>
-    </div>
-    
-    <div id="hint">🛑 БАРЬЕР! Кликни, чтобы взломать его!</div>
-
-    <div id="quiz-card">
-        <h2 id="q-text" style="color:#333">?</h2>
-        <div id="options"></div>
-    </div>
-</div>
-
-<script>
-// КАРТА ЛАБИРИНТА (1-стена, 0-путь, 2-барьер, 3-выход)
-const maze = [
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
-    [1,0,1,0,1,0,1,1,1,2,1,0,1,0,1,1,1,1,0,1],
-    [1,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,1],
-    [1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,0,1,1],
-    [1,0,0,0,2,0,0,0,1,0,0,0,0,0,1,0,0,0,0,1],
-    [1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,1,0,1],
-    [1,0,0,0,0,0,1,0,2,0,1,0,0,0,0,0,0,1,0,1],
-    [1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,1,0,1,0,1],
-    [1,0,1,0,0,0,0,0,1,0,0,0,1,0,0,2,0,1,0,1],
-    [1,0,1,0,1,1,1,2,1,1,1,0,1,0,1,1,1,1,0,1],
-    [1,0,1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,1,0,1,1,1,0,1,1,1,1,1,1,1,1,0,1],
-    [1,0,1,1,1,0,0,0,1,0,0,0,0,0,2,0,0,0,0,1],
-    [1,0,0,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,2,1],
-    [1,1,1,0,0,0,1,0,1,0,0,0,1,0,1,0,0,0,0,1],
-    [1,0,0,0,1,0,0,0,1,0,1,0,0,0,1,0,1,1,0,1],
-    [1,0,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,3,1],
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-];
-
-const questions = [
-    { q: "Yesterday I ______ (see) a ghost.", a: "saw", opt: ["saw", "seed", "seen"] },
-    { q: "She ______ (not/buy) the dress.", a: "didn't buy", opt: ["didn't bought", "not bought", "didn't buy"] },
-    { q: "They ______ (be) happy to help.", a: "were", opt: ["was", "were", "been"] },
-    { q: "Where ______ (do) you go?", a: "did", opt: ["did", "do", "done"] },
-    { q: "I ______ (have) a cat 5 years ago.", a: "had", opt: ["had", "haved", "has"] }
-];
-
-// Настройка сцены
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0a1a);
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-
-// Освещение
-const light = new THREE.PointLight(0x00ffcc, 1, 15);
-scene.add(light);
-scene.add(new THREE.AmbientLight(0x404040, 0.5));
-
-// Материалы
-const wallMat = new THREE.MeshStandardMaterial({ color: 0x222244, roughness: 0.8 });
-const barMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, transparent: true, opacity: 0.8 });
-const floorMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-
-const walls = [], barriers = [];
-const geo = new THREE.BoxGeometry(1, 2.5, 1);
-
-maze.forEach((row, z) => {
-    row.forEach((type, x) => {
-        if(type === 1) {
-            const m = new THREE.Mesh(geo, wallMat);
-            m.position.set(x, 1.25, z);
-            scene.add(m); walls.push(m);
-        } else if(type === 2) {
-            const m = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2.4, 0.2), barMat);
-            m.position.set(x, 1.25, z);
-            scene.add(m); barriers.push(m);
-        } else if(type === 3) {
-            const fin = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.1), new THREE.MeshBasicMaterial({color: 0x00ff00}));
-            fin.position.set(x, 1.25, z);
-            scene.add(fin);
-        }
-    });
-});
-
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), floorMat);
-floor.rotation.x = -Math.PI/2;
-scene.add(floor);
-
-// Игрок
-const player = new THREE.Group();
-player.position.set(1, 0, 1);
-player.add(camera);
-scene.add(player);
-
-let score = 0, lives = 3, activeBarrier = null;
-const keys = {};
-window.onkeydown = e => keys[e.code] = true;
-window.onkeyup = e => keys[e.code] = false;
-
-// Клик по барьеру
-window.onclick = () => {
-    const ray = new THREE.Raycaster();
-    ray.setFromCamera(new THREE.Vector2(0,0), camera);
-    const hits = ray.intersectObjects(barriers);
-    if(hits.length > 0 && hits[0].distance < 2) {
-        activeBarrier = hits[0].object;
-        showQuiz();
+  // Simulate real-time data updates when tracking
+  useEffect(() => {
+    let interval;
+    if (isTracking) {
+      interval = setInterval(() => {
+        setSteps(prev => prev + Math.floor(Math.random() * 3) + 1);
+        setHeartRate(prev => {
+          const change = Math.random() * 4 - 2;
+          return Math.max(60, Math.min(180, prev + change));
+        });
+        setSpeed(prev => {
+          const change = (Math.random() - 0.5) * 0.8;
+          return Math.max(3, Math.min(12, prev + change));
+        });
+        setDistance(prev => prev + (speed * 0.0167)); // speed in km/h, update every second
+      }, 1000);
     }
+    return () => clearInterval(interval);
+  }, [isTracking, speed]);
+
+  // Rotate health tips every 10 seconds
+  useEffect(() => {
+    const tipInterval = setInterval(() => {
+      setCurrentTip(prev => (prev + 1) % healthTips.length);
+    }, 10000);
+    return () => clearInterval(tipInterval);
+  }, [healthTips.length]);
+
+  // Mock route data for the map
+  const mockRoute = [
+    { lat: 40.7128, lng: -74.0060 },
+    { lat: 40.7135, lng: -74.0055 },
+    { lat: 40.7142, lng: -74.0050 },
+    { lat: 40.7149, lng: -74.0045 },
+    { lat: 40.7156, lng: -74.0040 },
+    { lat: 40.7163, lng: -74.0035 },
+    { lat: 40.7170, lng: -74.0030 }
+  ];
+
+  const startTracking = () => {
+    setIsTracking(true);
+    setRouteData(mockRoute);
+    setSteps(0);
+    setDistance(0);
+    setDuration('00:00:00');
+  };
+
+  const stopTracking = () => {
+    setIsTracking(false);
+  };
+
+  const formatTime = (seconds) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Mock heart rate data for chart
+  const heartRateData = [
+    { time: '08:00', bpm: 68 },
+    { time: '09:00', bpm: 72 },
+    { time: '10:00', bpm: 75 },
+    { time: '11:00', bpm: 70 },
+    { time: '12:00', bpm: 73 },
+    { time: '13:00', bpm: 69 },
+    { time: '14:00', bpm: 74 }
+  ];
+
+  const renderDashboard = () => (
+    <div className="space-y-6">
+      {/* Health Tip Banner */}
+      <div className="bg-gradient-to-r from-green-500 to-teal-500 rounded-2xl p-5 text-white">
+        <div className="flex items-center space-x-3">
+          <span className="text-2xl">💡</span>
+          <p className="font-medium">{healthTips[currentTip]}</p>
+        </div>
+      </div>
+
+      {/* Main Stats */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl p-5 shadow-sm border text-center">
+          <div className="text-3xl font-bold text-blue-600 mb-1">{steps.toLocaleString()}</div>
+          <div className="text-gray-600 text-sm">Steps</div>
+        </div>
+        <div className="bg-white rounded-xl p-5 shadow-sm border text-center">
+          <div className="text-3xl font-bold text-red-500 mb-1">{heartRate}</div>
+          <div className="text-gray-600 text-sm">BPM</div>
+        </div>
+        <div className="bg-white rounded-xl p-5 shadow-sm border text-center">
+          <div className="text-3xl font-bold text-purple-600 mb-1">{speed.toFixed(1)}</div>
+          <div className="text-gray-600 text-sm">km/h</div>
+        </div>
+        <div className="bg-white rounded-xl p-5 shadow-sm border text-center">
+          <div className="text-3xl font-bold text-orange-600 mb-1">{distance.toFixed(1)}</div>
+          <div className="text-gray-600 text-sm">km</div>
+        </div>
+      </div>
+
+      {/* Duration */}
+      <div className="bg-white rounded-xl p-5 shadow-sm border text-center">
+        <div className="text-2xl font-bold text-gray-800 mb-1">{duration}</div>
+        <div className="text-gray-600 text-sm">Duration</div>
+      </div>
+
+      {/* Tracking Controls */}
+      <div className="flex justify-center">
+        {!isTracking ? (
+          <button
+            onClick={startTracking}
+            className="bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-full text-lg font-semibold transition-colors flex items-center space-x-2"
+          >
+            <span>▶</span>
+            <span>Start Tracking</span>
+          </button>
+        ) : (
+          <button
+            onClick={stopTracking}
+            className="bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-full text-lg font-semibold transition-colors flex items-center space-x-2"
+          >
+            <span>⏹</span>
+            <span>Stop Tracking</span>
+          </button>
+        )}
+      </div>
+
+      {/* Heart Rate Chart */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm border">
+        <h3 className="text-lg font-semibold mb-4 text-center">Heart Rate Today</h3>
+        <div className="h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={heartRateData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="time" stroke="#666" />
+              <YAxis stroke="#666" domain={[60, 80]} />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'white', 
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="bpm" 
+                stroke="#ef4444" 
+                strokeWidth={3}
+                dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
+                activeDot={{ r: 6, stroke: '#ef4444', strokeWidth: 2 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMap = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-800 text-center">Your Route</h2>
+      
+      {/* Mock Map Visualization */}
+      <div className="bg-gradient-to-br from-blue-100 to-green-100 rounded-2xl h-96 relative overflow-hidden">
+        {/* Simple route visualization */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-full h-full relative">
+            {/* Grid lines to simulate map */}
+            <div className="absolute inset-0 bg-white opacity-20"></div>
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="absolute w-full h-px bg-white opacity-30" style={{ top: `${i * 10}%` }}></div>
+            ))}
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="absolute h-full w-px bg-white opacity-30" style={{ left: `${i * 10}%` }}></div>
+            ))}
+            
+            {/* Route line */}
+            <svg className="absolute inset-0 w-full h-full">
+              <polyline
+                points="10,80 20,75 30,70 40,65 50,60 60,55 70,50 80,45 90,40"
+                fill="none"
+                stroke="#3b82f6"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {/* Start marker */}
+              <circle cx="10" cy="80" r="4" fill="#10b981" stroke="white" strokeWidth="2"/>
+              {/* End marker */}
+              <circle cx="90" cy="40" r="4" fill="#ef4444" stroke="white" strokeWidth="2"/>
+            </svg>
+            
+            {/* Legend */}
+            <div className="absolute bottom-4 left-4 bg-white bg-opacity-90 rounded-lg p-2 text-xs">
+              <div className="flex items-center space-x-2 mb-1">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <span>Start</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                <span>End</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Route Stats */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl p-4 shadow-sm border text-center">
+          <div className="text-xl font-bold text-gray-800">{distance.toFixed(2)} km</div>
+          <div className="text-gray-600 text-sm">Total Distance</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border text-center">
+          <div className="text-xl font-bold text-gray-800">{speed.toFixed(1)} km/h</div>
+          <div className="text-gray-600 text-sm">Average Speed</div>
+        </div>
+      </div>
+
+      {/* Route Details */}
+      {routeData.length > 0 && (
+        <div className="bg-white rounded-xl p-4 shadow-sm border">
+          <h3 className="text-lg font-semibold mb-3">Route Details</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Start Point:</span>
+              <span>{routeData[0].lat.toFixed(4)}, {routeData[0].lng.toFixed(4)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">End Point:</span>
+              <span>{routeData[routeData.length - 1].lat.toFixed(4)}, {routeData[routeData.length - 1].lng.toFixed(4)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Waypoints:</span>
+              <span>{routeData.length}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const tabs = [
+    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+    { id: 'map', label: 'Route Map', icon: '🗺️' }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-md mx-auto px-4 py-4">
+          <div className="flex justify-center items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-xl flex items-center justify-center">
+              <span className="text-white font-bold text-xl">F</span>
+            </div>
+            <h1 className="text-xl font-bold text-gray-800">FitTrack</h1>
+          </div>
+        </div>
+      </header>
+
+      {/* Navigation */}
+      <nav className="bg-white border-b">
+        <div className="max-w-md mx-auto px-4">
+          <div className="flex space-x-8 justify-center">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <span className="mr-1">{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="max-w-md mx-auto px-4 py-6">
+        {activeTab === 'dashboard' && renderDashboard()}
+        {activeTab === 'map' && renderMap()}
+      </main>
+
+      {/* Bottom Navigation (Mobile-friendly) */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t">
+        <div className="max-w-md mx-auto px-4 py-2">
+          <div className="flex justify-around">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+                  activeTab === tab.id
+                    ? 'text-blue-600 bg-blue-50'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <span className="text-lg mb-1">{tab.icon}</span>
+                <span className="text-xs">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-function showQuiz() {
-    const q = questions[Math.floor(Math.random()*questions.length)];
-    document.getElementById('q-text').innerText = q.q;
-    const optDiv = document.getElementById('options');
-    optDiv.innerHTML = '';
-    q.opt.forEach(o => {
-        const b = document.createElement('button');
-        b.className = 'ans-btn';
-        b.innerText = o;
-        b.onclick = () => {
-            if(o === q.a) {
-                score += 10;
-                scene.remove(activeBarrier);
-                barriers.splice(barriers.indexOf(activeBarrier), 1);
-            } else {
-                lives--;
-                score = Math.max(0, score - 5);
-            }
-            document.getElementById('quiz-card').style.display = 'none';
-            document.getElementById('score').innerText = score;
-            document.getElementById('lives').innerText = lives;
-            if(lives <= 0) { alert("Вы заблудились навсегда..."); location.reload(); }
-        };
-        optDiv.appendChild(b);
-    });
-    document.getElementById('quiz-card').style.display = 'block';
-}
+export default App;
 
-function update() {
-    const prev = player.position.clone();
-    const speed = 0.08, rotSpeed = 0.04;
-
-    if(keys['KeyW'] || keys['ArrowUp']) player.translateZ(-speed);
-    if(keys['KeyS'] || keys['ArrowDown']) player.translateZ(speed);
-    if(keys['KeyA'] || keys['ArrowLeft']) player.rotation.y += rotSpeed;
-    if(keys['KeyD'] || keys['ArrowRight']) player.rotation.y -= rotSpeed;
-
-    // Коллизии
-    [...walls, ...barriers].forEach(w => {
-        if(player.position.distanceTo(w.position) < 0.75) player.position.copy(prev);
-    });
-
-    // Хинт
-    let isNear = false;
-    barriers.forEach(b => { if(player.position.distanceTo(b.position) < 2) isNear = true; });
-    document.getElementById('hint').style.display = isNear ? 'block' : 'none';
-
-    // Миникарта
-    document.getElementById('player-dot').style.left = (player.position.x * 7.5) + 'px';
-    document.getElementById('player-dot').style.top = (player.position.z * 7.5) + 'px';
-
-    // Финиш (клетка 18, 18)
-    if(player.position.distanceTo(new THREE.Vector3(18, 0, 18)) < 1) {
-        alert("СВОБОДА! Вы прошли лабиринт. Очки: " + score);
-        location.reload();
-    }
-
-    light.position.copy(player.position);
-    renderer.render(scene, camera);
-    requestAnimationFrame(update);
-}
-update();
-</script>
-</body>
-</html>
