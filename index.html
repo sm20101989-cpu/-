@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,8 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-/* Убрал старую картинку из CSS, теперь фон управляется через Canvas */
-html,body{width:100%;height:100%;overflow:hidden;background:#0a1a04;font-family:'Nunito',sans-serif;user-select:none;-webkit-user-select:none}
+/* 🔥 ЗАМЕНА ФОНА: ваш лабиринт-остров */
+html,body{width:100%;height:100%;overflow:hidden;background:#0a1a04 url('https://i.imgur.com/5FhRFHX.jpeg') center/cover no-repeat fixed;font-family:'Nunito',sans-serif;user-select:none;-webkit-user-select:none}
 #G{position:relative;width:100%;height:100%}
 canvas{display:block;position:absolute;inset:0;width:100%;height:100%;cursor:pointer}
 #hud{position:absolute;top:0;left:0;right:0;height:66px;display:flex;align-items:center;gap:8px;padding:6px 12px;z-index:50;pointer-events:none;background:linear-gradient(180deg,rgba(0,20,0,.8)0%,transparent)}
@@ -439,18 +440,17 @@ let ST={cl:0,str:0,tu:0,tc:0,cor:0,lvc:0,hloss:0,lt:0,lacc:0};
 let achDone=new Set();let lvlTs=0,lvlTot=0,lvlCorr=0;
 const STOCK={t1:3,t2:2,t3:1,t4:1};
 let curTool='t0';
-
 // ══ BACKGROUND IMAGE ══
 let bgImg=null;
 function genBg(){
 if(!bgImg){
 bgImg=new Image();
+// 🔥 ЗАМЕНА: ваш новый фон-лабиринт
 bgImg.src='https://i.imgur.com/5FhRFHX.jpeg';
 bgImg.loaded=false;
 bgImg.onload=()=>{bgImg.loaded=true;};
 }
 }
-
 // ══ BACKGROUND DRAWING ══
 function drawBg(){
 if(bgImg&&bgImg.loaded){
@@ -460,7 +460,6 @@ CX.fillStyle='#0a1a04';
 CX.fillRect(0,0,W,H);
 }
 }
-
 // ══ HERO SPRITE ══
 let heroImg=null;
 function loadHero(){
@@ -471,7 +470,6 @@ heroImg.loaded=false;
 heroImg.onload=()=>{heroImg.loaded=true;};
 }
 }
-
 // ══ HERO DRAWING ══
 function drawHero(cx,cy,fR,wt){
 const s=SC;
@@ -506,7 +504,6 @@ CX.arc(cx,cy-bob*s,18*s,0,Math.PI*2);
 CX.fill();
 }
 }
-
 // ══ JUNGLE FLOOR TILE ══
 function drawFloor(c,r,tint){
 const{x,y}=iso(c,r);const hw=TW/2*SC,hh=TH/2*SC;
@@ -520,7 +517,6 @@ CX.fill();CX.strokeStyle='rgba(20,80,4,.12)';CX.lineWidth=.5;CX.stroke();
 if((c*11+r*13)%7===0){CX.fillStyle='rgba(139,90,20,.28)';CX.beginPath();CX.ellipse(x+2*SC,y-1*SC,4*SC,2.5*SC,0,0,Math.PI*2);CX.fill();}
 if((c*7+r*11)%8===0){CX.fillStyle='rgba(255,255,255,.7)';CX.beginPath();CX.arc(x-4*SC,y,2*SC,0,Math.PI*2);CX.fill();}
 }
-
 // ══ JUNGLE BAMBOO WALL ══
 function drawWall(c,r){
 const{x,y}=iso(c,r);const hw=TW/2*SC,hh=TH/2*SC,wh=WH*SC;
@@ -568,7 +564,6 @@ const leafColors=['#2a8a10','#3aaa18','#48c020','#5ad028','#28780e'];
 for(let i=0;i<5;i++){const t=(i+.5)/5.5,lx=vx+Math.sin(t*Math.PI)*(side==='L'?-14:14)*s,ly=vy-whs*(1-t);CX.beginPath();CX.ellipse(lx,ly,7*s,4*s,Math.PI/4*(side==='L'?-1:1),0,Math.PI*2);CX.fillStyle=leafColors[i%5];CX.fill();}
 CX.restore();
 }
-
 // ══ GATE DRAWING ══
 function drawGate(c,r,g,idx){
 drawFloor(c,r);
@@ -685,7 +680,6 @@ CX.save();CX.font=`${20*SC}px serif`;CX.textAlign='center';CX.textBaseline='midd
 }
 gHits.push({c,r,g,cx:x,cy:y-WH*SC*.55,rad:36*s});
 }
-
 // ══ DECOR ══
 function drawDecor(c,r,type){
 drawFloor(c,r);const{x,y}=iso(c,r);const s=SC;CX.save();
@@ -758,7 +752,6 @@ const as=14*SC;CX.fillStyle='#f0e030';CX.shadowBlur=12*SC;CX.shadowColor='rgba(2
 CX.beginPath();CX.moveTo(0,-as);CX.lineTo(as*.6,-as*.2);CX.lineTo(as*.3,-as*.2);CX.lineTo(as*.3,as*.5);CX.lineTo(-as*.3,as*.5);CX.lineTo(-as*.3,-as*.2);CX.lineTo(-as*.6,-as*.2);CX.closePath();CX.fill();CX.restore();
 });
 }
-
 // ══ NPC ══
 function drawNPC(c,r,npc){
 drawFloor(c,r,'rgba(80,180,60,.22)');
@@ -1169,7 +1162,7 @@ inModal=false;active=false;camX=camY=ctX=ctY=0;
 ST={cl:0,str:0,tu:0,tc:0,cor:0,lvc:0,hloss:0,lt:0,lacc:0};
 achDone=new Set();STOCK.t1=3;STOCK.t2=2;STOCK.t3=1;STOCK.t4=1;
 setTool('t0');
-loadHero(); // ← Загрузка героя
+loadHero();
 setupLevel();resize();updHUD();mkMinimap();
 clearInterval(timerID);elapsed=0;
 timerID=setInterval(()=>{if(active&&!paused){elapsed++;document.getElementById('timer').textContent=fmtT(elapsed);}},1000);
