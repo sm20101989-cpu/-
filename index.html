@@ -7,7 +7,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow:hidden;background:#0a1a04 url('https://i.imgur.com/r8D2dWM.png') center/cover no-repeat fixed;font-family:'Nunito',sans-serif;user-select:none;-webkit-user-select:none}
+/* Убрал старую картинку из CSS, теперь фон управляется через Canvas */
+html,body{width:100%;height:100%;overflow:hidden;background:#0a1a04;font-family:'Nunito',sans-serif;user-select:none;-webkit-user-select:none}
 #G{position:relative;width:100%;height:100%}
 canvas{display:block;position:absolute;inset:0;width:100%;height:100%;cursor:pointer}
 #hud{position:absolute;top:0;left:0;right:0;height:66px;display:flex;align-items:center;gap:8px;padding:6px 12px;z-index:50;pointer-events:none;background:linear-gradient(180deg,rgba(0,20,0,.8)0%,transparent)}
@@ -444,7 +445,7 @@ let bgImg=null;
 function genBg(){
 if(!bgImg){
 bgImg=new Image();
-bgImg.src='https://i.imgur.com/r8D2dWM.png';
+bgImg.src='https://i.imgur.com/5FhRFHX.jpeg';
 bgImg.loaded=false;
 bgImg.onload=()=>{bgImg.loaded=true;};
 }
@@ -476,7 +477,6 @@ function drawHero(cx,cy,fR,wt){
 const s=SC;
 const isW=mPath.length>0||mTimer>0;
 const bob=isW?(Math.abs(Math.sin(wt*Math.PI*5))*4):Math.sin(Date.now()/560)*1.8;
-
 // Shadow
 CX.save();
 CX.globalAlpha=0.22;
@@ -485,7 +485,6 @@ CX.ellipse(cx,cy+2*s-bob*s,16*s,6*s,0,0,Math.PI*2);
 CX.fillStyle='#000';
 CX.fill();
 CX.restore();
-
 if(heroImg&&heroImg.loaded){
 CX.save();
 CX.translate(cx,cy-bob*s);
@@ -1170,7 +1169,7 @@ inModal=false;active=false;camX=camY=ctX=ctY=0;
 ST={cl:0,str:0,tu:0,tc:0,cor:0,lvc:0,hloss:0,lt:0,lacc:0};
 achDone=new Set();STOCK.t1=3;STOCK.t2=2;STOCK.t3=1;STOCK.t4=1;
 setTool('t0');
-loadHero(); // ← Added to load hero image
+loadHero(); // ← Загрузка героя
 setupLevel();resize();updHUD();mkMinimap();
 clearInterval(timerID);elapsed=0;
 timerID=setInterval(()=>{if(active&&!paused){elapsed++;document.getElementById('timer').textContent=fmtT(elapsed);}},1000);
