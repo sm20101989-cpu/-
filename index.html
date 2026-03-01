@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,8 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-/* 🔥 ЗАМЕНА ФОНА: ваш лабиринт-остров */
-html,body{width:100%;height:100%;overflow:hidden;background:#0a1a04 url('https://i.imgur.com/5FhRFHX.jpeg') center/cover no-repeat fixed;font-family:'Nunito',sans-serif;user-select:none;-webkit-user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a1a04 url('https://i.imgur.com/r8D2dWM.png') center/cover no-repeat fixed;font-family:'Nunito',sans-serif;user-select:none;-webkit-user-select:none}
 #G{position:relative;width:100%;height:100%}
 canvas{display:block;position:absolute;inset:0;width:100%;height:100%;cursor:pointer}
 #hud{position:absolute;top:0;left:0;right:0;height:66px;display:flex;align-items:center;gap:8px;padding:6px 12px;z-index:50;pointer-events:none;background:linear-gradient(180deg,rgba(0,20,0,.8)0%,transparent)}
@@ -445,8 +443,7 @@ let bgImg=null;
 function genBg(){
 if(!bgImg){
 bgImg=new Image();
-// 🔥 ЗАМЕНА: ваш новый фон-лабиринт
-bgImg.src='https://i.imgur.com/5FhRFHX.jpeg';
+bgImg.src='https://i.imgur.com/r8D2dWM.png';
 bgImg.loaded=false;
 bgImg.onload=()=>{bgImg.loaded=true;};
 }
@@ -806,22 +803,83 @@ if(Math.abs(py-cy)>dy)ctY+=((py-cy)-(py>cy?dy:-dy))*.5;
 camX=lerp(camX,ctX,.1);camY=lerp(camY,ctY,.1);
 }
 function shuf(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=0|Math.random()*(i+1);[b[i],b[j]]=[b[j],b[i]];}return b;}
+
+// ══ SPIRAL MAZE GENERATOR ══
 function buildMaze(){
-maze=Array.from({length:ROWS},()=>Array(COLS).fill(1));
-function carve(r,c){
-maze[r][c]=0;
-for(const[dr,dc]of shuf([[0,2],[0,-2],[2,0],[-2,0]])){
-const nr=r+dr,nc=c+dc;
-if(nr>0&&nr<ROWS-1&&nc>0&&nc<COLS-1&&maze[nr][nc]===1){maze[r+dr/2][c+dc/2]=0;carve(nr,nc);}
+    // Initialize maze with all walls
+    maze = Array.from({length: ROWS}, () => Array(COLS).fill(1));
+    
+    // Create spiral pattern - concentric rectangles with openings
+    // Outer ring (layer 0)
+    for(let c=1; c<COLS-1; c++) {
+        maze[1][c] = 0;
+        maze[ROWS-2][c] = 0;
+    }
+    for(let r=2; r<ROWS-2; r++) {
+        maze[r][1] = 0;
+        maze[r][COLS-2] = 0;
+    }
+    
+    // Opening in outer ring (entrance from start)
+    maze[1][1] = 0;
+    maze[2][1] = 0;
+    maze[1][2] = 0;
+    
+    // Opening to next layer (right side)
+    maze[3][COLS-2] = 0;
+    
+    // Second ring (layer 1)
+    for(let c=3; c<COLS-3; c++) {
+        maze[3][c] = 0;
+        maze[ROWS-4][c] = 0;
+    }
+    for(let r=4; r<ROWS-4; r++) {
+        maze[r][3] = 0;
+        maze[r][COLS-4] = 0;
+    }
+    
+    // Opening to third layer (left side)
+    maze[5][3] = 0;
+    
+    // Third ring (layer 2)
+    for(let c=5; c<COLS-5; c++) {
+        maze[5][c] = 0;
+        maze[ROWS-6][c] = 0;
+    }
+    for(let r=6; r<ROWS-6; r++) {
+        maze[r][5] = 0;
+        maze[r][COLS-6] = 0;
+    }
+    
+    // Opening to center (right side)
+    maze[7][COLS-6] = 0;
+    
+    // Center area (layer 3)
+    for(let c=7; c<COLS-7; c++) {
+        maze[7][c] = 0;
+        maze[ROWS-8][c] = 0;
+    }
+    for(let r=8; r<ROWS-8; r++) {
+        maze[r][7] = 0;
+        maze[r][COLS-8] = 0;
+    }
+    
+    // Center point (exit location)
+    const centerRow = Math.floor(ROWS/2);
+    const centerCol = Math.floor(COLS/2);
+    maze[centerRow][centerCol] = 0;
+    
+    // Ensure exit position is clear
+    maze[exitPos.row][exitPos.col] = 0;
+    if(exitPos.row > 0) maze[exitPos.row-1][exitPos.col] = 0;
+    if(exitPos.col > 0) maze[exitPos.row][exitPos.col-1] = 0;
+    
+    // Ensure start position is clear
+    maze[1][1] = 0;
+    maze[1][2] = 0;
+    maze[2][1] = 0;
 }
-}
-carve(1,1);
-maze[exitPos.row][exitPos.col]=0;
-maze[Math.max(1,exitPos.row-1)][exitPos.col]=0;
-maze[exitPos.row][Math.max(1,exitPos.col-1)]=0;
-for(let i=0;i<7;i++){const r=1+Math.floor(Math.random()*(ROWS-2)),c=1+Math.floor(Math.random()*(COLS-2));maze[r][c]=0;}
-maze[1][1]=0;maze[1][2]=0;maze[2][1]=0;
-}
+
 function openCells(excl=[]){
 const out=[];
 for(let r=1;r<ROWS-1;r++)for(let c=1;c<COLS-1;c++){
@@ -1162,7 +1220,7 @@ inModal=false;active=false;camX=camY=ctX=ctY=0;
 ST={cl:0,str:0,tu:0,tc:0,cor:0,lvc:0,hloss:0,lt:0,lacc:0};
 achDone=new Set();STOCK.t1=3;STOCK.t2=2;STOCK.t3=1;STOCK.t4=1;
 setTool('t0');
-loadHero();
+loadHero(); // ← Added to load hero image
 setupLevel();resize();updHUD();mkMinimap();
 clearInterval(timerID);elapsed=0;
 timerID=setInterval(()=>{if(active&&!paused){elapsed++;document.getElementById('timer').textContent=fmtT(elapsed);}},1000);
